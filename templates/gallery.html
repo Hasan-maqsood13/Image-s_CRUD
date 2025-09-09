@@ -28,6 +28,12 @@
 
   <hr>
 
+  <!-- Bulk Delete Button -->
+  <div class="d-flex justify-content-between align-items-center mt-4 mb-2">
+    <h4>Gallery</h4>
+    <button id="deleteSelectedBtn" class="btn btn-danger btn-sm">Delete Selected</button>
+  </div>
+
   <!-- Image Gallery -->
   <div class="row" id="galleryGrid">
     {% for photo in photos %}
@@ -35,13 +41,15 @@
         <div class="card">
           <img src="{{ photo.image.url }}" class="card-img-top" style="height:200px; object-fit:cover;">
           <div class="card-body text-center">
-            <h6>{{ photo.title }}</h6>
-            <button class="btn btn-sm btn-primary edit-btn"
-                    data-id="{{ photo.id }}"
+            <h6 id="title-{{ photo.id }}">{{ photo.title }}</h6>
+            <input type="checkbox" class="select-photo" value="{{ photo.id }}">
+            <br>
+            <button class="btn btn-sm btn-warning edit-btn" 
+                    data-id="{{ photo.id }}" 
                     data-title="{{ photo.title }}">
               Edit
             </button>
-            <button class="btn btn-sm btn-primary delete-btn" data-id="{{ photo.id }}">Delete</button>
+            <button class="btn btn-sm btn-danger delete-btn" data-id="{{ photo.id }}">Delete</button>
           </div>
         </div>
       </div>
@@ -49,38 +57,9 @@
   </div>
 </div>
 
-<!-- Edit Modal -->
-<div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Edit Photo</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <form id="editForm" enctype="multipart/form-data">
-          {% csrf_token %}
-          <input type="hidden" id="editPhotoId">
-
-          <div class="mb-3">
-            <label class="form-label">Title</label>
-            <input type="text" class="form-control" id="editTitle" name="title" required>
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label">Change Image (optional)</label>
-            <input type="file" class="form-control" id="editImage" name="image">
-          </div>
-
-          <button type="submit" class="btn btn-success">Save Changes</button>
-        </form>
-      </div>
-    </div>
-  </div>
-</div>
-
 <script>
 $(document).ready(function () {
+
     // Upload multiple images
     $("#uploadForm").on("submit", function (e) {
         e.preventDefault();
@@ -100,7 +79,9 @@ $(document).ready(function () {
                             <div class="card">
                               <img src="${photo.image_url}" class="card-img-top" style="height:200px; object-fit:cover;">
                               <div class="card-body text-center">
-                                <h6>${photo.title}</h6>
+                                <h6 id="title-${photo.id}">${photo.title}</h6>
+                                <input type="checkbox" class="select-photo" value="${photo.id}">
+                                <br>
                                 <button class="btn btn-sm btn-warning edit-btn" 
                                         data-id="${photo.id}" 
                                         data-title="${photo.title}">
@@ -114,63 +95,21 @@ $(document).ready(function () {
                     });
                     $("#uploadForm")[0].reset();
                 } else {
-                    alert(res.message);
+                    Swal.fire("Error", res.message, "error");
                 }
             },
             error: function () {
-                alert("Error uploading images");
+                Swal.fire("Error", "Error uploading images", "error");
             }
         });
     });
 
-    // Open Edit Modal
-    $(document).on("click", ".edit-btn", function () {
-        var photoId = $(this).data("id");
-        var title = $(this).data("title");
-
-        $("#editPhotoId").val(photoId);
-        $("#editTitle").val(title);
-
-        $("#editModal").modal("show");
-    });
-
-    // Submit Edit Form
-    $("#editForm").on("submit", function (e) {
-        e.preventDefault();
-
-        var photoId = $("#editPhotoId").val();
-        var formData = new FormData(this);
-
-        $.ajax({
-            type: "POST",
-            url: `/edit/${photoId}/`,
-            data: formData,
-            processData: false,
-            contentType: false,
-            success: function (res) {
-                if (res.success) {
-                    $(`#photo-${res.photo.id} h6`).text(res.photo.title);
-                    if (res.photo.image_url) {
-                        $(`#photo-${res.photo.id} img`).attr("src", res.photo.image_url);
-                    }
-                    $("#editModal").modal("hide");
-                } else {
-                    alert(res.message);
-                }
-            },
-            error: function () {
-                alert("Error updating photo");
-            }
-        });
-    });
-
-    // Delete photo with confirmation
+    // Single Delete
     $(document).on("click", ".delete-btn", function () {
         var photoId = $(this).data("id");
-
         Swal.fire({
             title: "Are you sure?",
-            text: "This photo will be permanently deleted!",
+            text: "This photo will be deleted!",
             icon: "warning",
             showCancelButton: true,
             confirmButtonColor: "#d33",
@@ -199,9 +138,92 @@ $(document).ready(function () {
             }
         });
     });
+
+    // Bulk Delete
+    $("#deleteSelectedBtn").on("click", function () {
+        var selected = [];
+        $(".select-photo:checked").each(function () {
+            selected.push($(this).val());
+        });
+
+        if (selected.length === 0) {
+            Swal.fire("No photos selected", "Please select at least one photo", "warning");
+            return;
+        }
+
+        Swal.fire({
+            title: "Are you sure?",
+            text: "Selected photos will be deleted!",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#d33",
+            cancelButtonColor: "#3085d6",
+            confirmButtonText: "Yes, delete them!"
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    type: "POST",
+                    url: "/delete-multiple/",
+                    data: {
+                        ids: JSON.stringify(selected),
+                        csrfmiddlewaretoken: "{{ csrf_token }}"
+                    },
+                    success: function (res) {
+                        if (res.success) {
+                            selected.forEach(function (id) {
+                                $("#photo-" + id).remove();
+                            });
+                            Swal.fire("Deleted!", res.message, "success");
+                        } else {
+                            Swal.fire("Error!", res.message, "error");
+                        }
+                    },
+                    error: function () {
+                        Swal.fire("Error!", "Error deleting photos", "error");
+                    }
+                });
+            }
+        });
+    });
+
+    // Edit Photo Title
+    $(document).on("click", ".edit-btn", function () {
+        var photoId = $(this).data("id");
+        var oldTitle = $(this).data("title");
+
+        Swal.fire({
+            title: "Edit Title",
+            input: "text",
+            inputValue: oldTitle,
+            showCancelButton: true,
+            confirmButtonText: "Save"
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    type: "POST",
+                    url: `/edit/${photoId}/`,
+                    data: {
+                        title: result.value,
+                        csrfmiddlewaretoken: "{{ csrf_token }}"
+                    },
+                    success: function (res) {
+                        if (res.success) {
+                            $("#title-" + photoId).text(result.value);
+                            $(`.edit-btn[data-id='${photoId}']`).data("title", result.value);
+                            Swal.fire("Updated!", res.message, "success");
+                        } else {
+                            Swal.fire("Error!", res.message, "error");
+                        }
+                    },
+                    error: function () {
+                        Swal.fire("Error!", "Error updating photo", "error");
+                    }
+                });
+            }
+        });
+    });
+
 });
 </script>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

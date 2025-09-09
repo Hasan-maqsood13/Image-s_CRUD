@@ -25,7 +25,7 @@ urlpatterns = [
     path('', views.gallery_view, name="gallery"),
     path('delete/<int:pk>/', views.delete_photo, name="delete_photo"),
     path("edit/<int:pk>/", views.edit_photo, name="edit_photo"),
-
+    path('delete-multiple/', views.delete_multiple_photos, name='delete_multiple'),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

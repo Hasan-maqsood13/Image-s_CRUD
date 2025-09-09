@@ -94,3 +94,20 @@ def edit_photo(request, pk):
             return JsonResponse({"success": False, "message": "Photo not found."})
 
     return JsonResponse({"success": False, "message": "Invalid request."})
+
+def delete_multiple_photos(request):
+    if request.method == "POST":
+        try:
+            ids = json.loads(request.POST.get("ids", "[]"))
+            photos = Photo.objects.filter(id__in=ids)
+
+            if not photos.exists():
+                return JsonResponse({"success": False, "message": "No photos found."})
+
+            count = photos.count()
+            photos.delete()
+
+            return JsonResponse({"success": True, "message": f"{count} photos deleted successfully."})
+        except Exception as e:
+            return JsonResponse({"success": False, "message": str(e)})
+    return JsonResponse({"success": False, "message": "Invalid request."})

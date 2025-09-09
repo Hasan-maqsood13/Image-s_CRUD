@@ -16,11 +16,16 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from crud import views
 from django.conf import settings
 from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('', views.gallery_view, name="gallery"),
+    path('delete/<int:pk>/', views.delete_photo, name="delete_photo"),
+    path("edit/<int:pk>/", views.edit_photo, name="edit_photo"),
+
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
